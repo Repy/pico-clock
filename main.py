@@ -121,7 +121,7 @@ async def clock():
             w.draw(6,0,fontimage.image(fontimage.number[(nowtime//60) % 10],(8,8,8)))
             w.draw(12,2,[[(8,8,8)]])
             w.draw(12,5,[[(8,8,8)]])
-            w.draw(14,0,fontimage.image(fontimage.number[(nowtime//10) % 10],(8,8,8)))
+            w.draw(14,0,fontimage.image(fontimage.number[(nowtime%60) // 10],(8,8,8)))
             w.draw(20,0,fontimage.image(fontimage.number[nowtime % 10],(8,8,8)))
             w.write()
             w.print()
@@ -135,3 +135,4 @@ async def main():
     await uasyncio.gather(doko(), clock())
 
 uasyncio.run(main())
+
