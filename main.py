@@ -39,12 +39,15 @@ def now():
     mini = current_time[4]
     return hour * 60 + mini
 
+BOUND_UP = "up"
+BOUND_DOWN = "down"
+
 ### ダイヤ時刻取得
-async def diatime():
+async def diatime(bound):
     nowtime = now()
     print("diatime")
     reader, writer = await uasyncio.open_connection("doko-train.jp", 443, ssl=True, server_hostname="doko-train.jp")
-    writer.write("GET /json/departure_info/202/2241215130_down.json HTTP/1.1\r\nHost: doko-train.jp\r\n\r\n".encode())
+    writer.write(f"GET /json/departure_info/202/2241215130_{bound}.json HTTP/1.1\r\nHost: doko-train.jp\r\n\r\n".encode())
     await writer.drain()
     
     data = await reader.read(5000)
@@ -80,14 +83,22 @@ async def diatime():
                 print("Response:", response_text)
     return -1
 
-dtime = 0
+dtime_up = 0
+dtime_down = 0
 
 ### 1スレッド目
 async def doko():
     while True:
+        global dtime_up
         try:
-            global dtime
-            dtime = await diatime()
+            dtime_up = await diatime(BOUND_UP)
+        except:
+            pass
+        gc.collect()
+        gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
+        global dtime_down
+        try:
+            dtime_down = await diatime(BOUND_DOWN)
         except:
             pass
         gc.collect()
@@ -101,20 +112,32 @@ async def clock():
         count = count + 1
         
         nowtime = now()
-        print("nowtime:", dtime, nowtime)
+        print("nowtime:", nowtime, ", dtime_down:", dtime_down, ", dtime_up:", dtime_up)
         
-        difftime = dtime - nowtime
+        difftime_down = dtime_down - nowtime
+        difftime_up = dtime_up - nowtime
         
         
-        if difftime > 0 and (count//10) % 2 == 1:
+        if difftime_down > 0 and (count//5) % 3 == 1:
             w.reset()
-            w.draw(0,0,fontimage.image(fontimage.hiragana_a,(8,0,0)))
-            w.draw(7,0,fontimage.image(fontimage.hiragana_to,(8,0,0)))
-            w.draw(13,0,fontimage.image(fontimage.number[(difftime//10) % 10],(8,0,0)))
-            w.draw(19,0,fontimage.image(fontimage.number[difftime % 10],(8,0,0)))
+            w.draw(0,0,fontimage.image(fontimage.kanji_ue,(8,0,0)))
+            w.draw(7,0,fontimage.image(fontimage.hiragana_ri,(8,0,0)))
+            w.draw(13,0,fontimage.image(fontimage.number[(difftime_down//10) % 10],(8,0,0)))
+            w.draw(19,0,fontimage.image(fontimage.number[difftime_down % 10],(8,0,0)))
             w.draw(25,0,fontimage.image(fontimage.kanji_hun,(8,0,0)))
             w.write()
             w.print()
+
+        if difftime_up > 0 and (count//5) % 3 == 2:
+            w.reset()
+            w.draw(0,0,fontimage.image(fontimage.kanji_shita,(8,0,0)))
+            w.draw(7,0,fontimage.image(fontimage.hiragana_ri,(8,0,0)))
+            w.draw(13,0,fontimage.image(fontimage.number[(difftime_up//10) % 10],(8,0,0)))
+            w.draw(19,0,fontimage.image(fontimage.number[difftime_up % 10],(8,0,0)))
+            w.draw(25,0,fontimage.image(fontimage.kanji_hun,(8,0,0)))
+            w.write()
+            w.print()
+
         else:
             w.reset()
             w.draw(0,0,fontimage.image(fontimage.number[(nowtime // 60) // 10],(8,8,8)))
@@ -126,7 +149,6 @@ async def clock():
             w.write()
             w.print()
             
-        
         gc.collect()
         gc.threshold(gc.mem_free() // 4 + gc.mem_alloc())
         await uasyncio.sleep_ms(1000)
@@ -135,5 +157,6 @@ async def main():
     await uasyncio.gather(doko(), clock())
 
 uasyncio.run(main())
+
 
 
